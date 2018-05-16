@@ -1,0 +1,93 @@
+struct t_linked_list_of_ints
+{
+	int val;
+	struct t_linked_list_of_ints *prev, *next;
+};
+
+struct t_linked_list_of_ints *my_linked_list_of_ints;
+
+int add_to_llints(int newint)
+{
+	bool found = false;
+
+  if (my_linked_list_of_ints == NULL)
+	{
+		my_linked_list_of_ints = (t_linked_list_of_ints *) malloc(sizeof(t_linked_list_of_ints));
+		my_linked_list_of_ints->val = newint;
+        my_linked_list_of_ints->prev = NULL;
+        my_linked_list_of_ints->next = NULL;
+	}
+	else
+	{
+		// traverse to see if newint exists
+		struct t_linked_list_of_ints *p = my_linked_list_of_ints;
+		struct t_linked_list_of_ints *last = my_linked_list_of_ints;
+
+		while (p != NULL)
+		{
+           if (p->val == newint)
+		   {
+			   found = true;
+		       break;
+		   }
+           if (p->val > newint)
+		   {
+			   found = false;
+			   break;
+		   }
+		   last = p;
+		   p = p->next;
+		}
+		if (found == false)
+		{
+           struct t_linked_list_of_ints *new_node = (t_linked_list_of_ints *) malloc(sizeof(t_linked_list_of_ints));
+		   new_node->val = newint;
+		   if (p != NULL) // insert before last
+		   {
+              new_node->next = last;
+              new_node->prev = last->prev;
+
+		      if (last->prev != NULL)
+			    last->prev->next = new_node;
+		      last->prev = new_node;
+
+		      if (my_linked_list_of_ints == last)
+			    my_linked_list_of_ints = new_node;
+		   }
+		   else
+			   // insert after last
+		   {
+			   new_node->next = NULL;
+			   new_node->prev = last;
+			   last->next = new_node;
+		   }
+           
+		}
+	}
+
+	if (found == true)
+		return -1;
+	else
+	    return 0;
+}
+
+int _tmain(int argc, _TCHAR* argv[])
+{
+
+	my_linked_list_of_ints = NULL;
+
+	add_to_llints(7);
+  add_to_llints(32);
+  add_to_llints(58);
+  add_to_llints(3);
+	add_to_llints(3);
+  add_to_llints(-8);
+	add_to_llints(-8);
+	add_to_llints(-8);
+  add_to_llints(97);
+	add_to_llints(7);
+	add_to_llints(7);
+	add_to_llints(3);
+
+	return 0;
+}
