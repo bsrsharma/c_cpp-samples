@@ -14,12 +14,23 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "sqlite3.h"
 
 struct eventTblTag {
         uint16_t devid;
         uint8_t op;
         uint32_t time;
 } eventTbl[100];
+
+static int callback(void *NotUsed, int argc, char **argv, char **azColName){
+    int i;
+    for(i=0; i<argc; i++){
+      printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+    }
+    printf("\n");
+    return 0;
+}
+
 
 main(argc, argv)
 {
@@ -51,6 +62,34 @@ main(argc, argv)
        exit(-1);
    }
 
+// Open the report Database
+
+   /* Database open API
+
+   int sqlite3_open(
+      const char *filename,   // Database filename (UTF-8) 
+      sqlite3 **ppDb          // OUT: SQLite db handle
+   );
+   */
+
+   sqlite3 *pDb;
+   int rc;
+   char *zErrMsg = 0;
+   char sqlInsertCmd[256] = "INSERT INTO DEVICE_REPORT VALUES(65535,255,9999999999);";
+   char devRec[64] = "65535,255,9999999999";
+
+   rc = sqlite3_open("DeviceDB", &pDb);
+   if( rc ){
+      fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(pDb));
+      sqlite3_close(pDb);
+      return(-1);
+   }
+
+   rc = sqlite3_exec(pDb, "CREATE TABLE IF NOT EXISTS DEVICE_REPORT(ID INT NOT NULL,OP INT NOT NULL,TIME INT NOT NULL);", NULL, 0, &zErrMsg);
+   if( rc!=SQLITE_OK ){
+      fprintf(stderr, "SQL error: %s\n", zErrMsg);
+      sqlite3_free(zErrMsg);
+   }
 
    uint8_t buf[BUFLEN], recvlen;
    int slen = sizeof(struct sockaddr_in);
@@ -66,7 +105,6 @@ main(argc, argv)
 /*   
    printf("Received packet from %s:%d\n", 
                inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-
    int i;                          
    for(i=0; i < recvlen; i++)
       printf("%02X ", buf[i]);
@@ -74,6 +112,53 @@ main(argc, argv)
 */
 
    printf("Received devid = %d, op = %d, time = %d\n", *(uint16_t *)buf, *(uint8_t *)(buf+2), *(uint32_t *)(buf+3) );
+
+   // insert report into Database
+
+    sprintf(sqlInsertCmd, "INSERT INTO DEVICE_REPORT VALUES(%d,%d,%d);", *(uint16_t *)buf, *(uint8_t *)(buf+2), *(uint32_t *)(buf+3) );
+
+    rc = sqlite3_exec(pDb, sqlInsertCmd, NULL, 0, &zErrMsg);
+    if( rc!=SQLITE_OK ){
+       fprintf(stderr, "SQL error: %s\n", zErrMsg);
+       sqlite3_free(zErrMsg);
+    }
+
    } // count
+
+   // b. Calculate the total number of each operations performed by the devices
+
+    rc = sqlite3_exec(pDb, "SELECT OP, COUNT(*) FROM DEVICE_REPORT GROUP BY OP;", callback, 0, &zErrMsg);
+    if( rc!=SQLITE_OK ){
+       fprintf(stderr, "SQL error: %s\n", zErrMsg);
+       sqlite3_free(zErrMsg);
+    }   
+
+   // c. Create a list of operations sorted by average time
+
+    rc = sqlite3_exec(pDb, "SELECT OP, AVG(TIME) as AvgTime FROM DEVICE_REPORT GROUP BY OP ORDER BY AvgTime;", callback, 0, &zErrMsg);
+    if( rc!=SQLITE_OK ){
+       fprintf(stderr, "SQL error: %s\n", zErrMsg);
+       sqlite3_free(zErrMsg);
+    }   
+
+   // d. Read and report each device record
+
+    rc = sqlite3_exec(pDb, "SELECT * FROM DEVICE_REPORT GROUP BY ID;", callback, 0, &zErrMsg);
+    if( rc!=SQLITE_OK ){
+       fprintf(stderr, "SQL error: %s\n", zErrMsg);
+       sqlite3_free(zErrMsg);
+    }   
+
+   // e. Flush/reset the module 
+
+    rc = sqlite3_exec(pDb, "DELETE FROM DEVICE_REPORT;", NULL, 0, &zErrMsg);
+    if( rc!=SQLITE_OK ){
+       fprintf(stderr, "SQL error: %s\n", zErrMsg);
+       sqlite3_free(zErrMsg);
+    }   
+
+   // Close Database
+
+   sqlite3_close(pDb);
 
 }
