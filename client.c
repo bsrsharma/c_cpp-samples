@@ -23,7 +23,7 @@ struct eventTag {
 
 main(argc, argv)
 {
-   printf("Event Reporting System\n");
+   printf("Device Event Transmitter Program\n");
 
 
    int serverfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -82,7 +82,8 @@ main(argc, argv)
 
 */
 
-  printf("Sent devid = %d, op = %d, time = %d\n", event.devid, event.op, event.time);
+   printf("Sent devid = %d, op = %d, time = %d\n", event.devid, event.op, event.time);
 
+   usleep(10000);
    } // count
 }
